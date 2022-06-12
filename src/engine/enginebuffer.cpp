@@ -1337,9 +1337,15 @@ mixxx::audio::FramePos EngineBuffer::queuedSeekPosition() const {
 }
 
 void EngineBuffer::updateIndicators(double speed, int iBufferSize) {
-    if (!m_trackSampleRateOld.isValid()) {
-        // This happens if Deck Passthrough is active but no track is loaded.
-        // We skip indicator updates.
+    if (!m_playPosition.isValid() ||
+            !m_trackSampleRateOld.isValid() ||
+            m_tempo_ratio_old == 0) {
+        // Skip indicator updates with invalid values to prevent undefined behavior,
+        // e.g. in WaveformRenderBeat::draw().
+        //
+        // This is known to happen if Deck Passthrough is active, when either no
+        // track is loaded or a track was loaded but processSeek() has not been
+        // called yet.
         return;
     }
 
@@ -1395,7 +1401,7 @@ void EngineBuffer::hintReader(const double dRate) {
     if (m_bSlipEnabledProcessing) {
         Hint hint;
         hint.frame = static_cast<SINT>(m_slipPosition.toLowerFrameBoundary().value());
-        hint.priority = 1;
+        hint.type = Hint::Type::SlipPosition;
         if (m_dSlipRate >= 0) {
             hint.frameCount = Hint::kFrameCountForward;
         } else {
